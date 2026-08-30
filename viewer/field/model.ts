@@ -40,6 +40,24 @@ export type Formation = {
 /** One defender's alignment description. */
 export type Alignment = { raw: string };
 
+/** Where a defender's alignment is measured from. */
+export type AlignmentAnchor = "OLINE" | "RECEIVER" | "LANDMARK";
+
+/**
+ * A structured alignment: generic field geometry only (technique number,
+ * depth/width in yards, leverage, and neutral landmarks). Generic only.
+ */
+export type AlignmentSpec = {
+  raw: string;
+  anchor: AlignmentAnchor;
+  technique?: number; // 0,1,2,3,4,5,6,7,9 | 10,30,50 off-ball
+  depthYards?: number;
+  widthYards?: number;
+  leverage?: "INSIDE" | "OUTSIDE" | "HEAD_UP";
+  anchorPlayer?: string; // "TE", "#1", "#2", "#3"
+  landmark?: "MOF" | "APEX" | "FIELD" | "BOUNDARY";
+};
+
 export type Assignment = {
   slot: number;
   label: PositionId;
