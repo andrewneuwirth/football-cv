@@ -22,33 +22,61 @@ standard position. It uses only generic football geometry (line of scrimmage,
 offense/defense split, alignment depth and width) — no proprietary playbook
 logic.
 
-## Install
+## Demo
+
+![Generic position classification on a synthetic play](examples/demo.png)
+
+The classifier assigns a generic position to every player from geometry alone.
+The image above is produced by the bundled demo — no film and no torch required
+(it runs on `numpy` + `opencv` only):
 
 ```bash
 pip install -e .
-# with test dependencies
-pip install -e ".[dev]"
+python -m ml.demo          # writes examples/demo.png, demo.mp4, demo.positions.json
 ```
 
-Requires Python 3.11+. Core dependencies: `numpy`, `opencv-python`, `scipy`,
-`ultralytics` (YOLO).
+A short clip of the same play is at [`examples/demo.mp4`](examples/demo.mp4).
+
+## Install
+
+```bash
+pip install -e .              # classifier + demo (numpy, opencv-python, scipy)
+pip install -e ".[detect]"    # + YOLO person detection (pulls in torch)
+pip install -e ".[dev]"       # + test dependencies (pytest)
+```
+
+Requires Python 3.11+. Person detection (`ultralytics`/YOLO, and therefore
+torch) is an optional extra — the position classifier, demo, and tests run
+without it.
 
 ## Usage
 
-Run a single stage or the whole pipeline for a play:
+### Bring your own film
+
+Upload a clip, then run the pipeline on it:
 
 ```bash
-# run one stage
-python -m ml.cli detect <play_id> --data ./data
+# copy your film into place as a named play
+python -m ml.cli ingest my_play --video path/to/film.mp4 --data ./data
 
-# run the full pipeline end to end
-python -m ml.cli all <play_id> --data ./data
+# run the full pipeline end to end (needs the [detect] extra)
+python -m ml.cli all my_play --data ./data
 ```
 
-Stages, in pipeline order: `detect`, `track`, `autocal`, `field`, `teamcolor`,
-`positions`. Use `all` to run them in sequence. Each stage reads the artifacts
-written by the previous one from the play's directory under `--data`. The final
-stage writes `positions.json`, a map from track id to position token.
+`ingest` copies your video to `data/plays/<play_id>/clip.mp4`, which every
+downstream stage reads. You can also drop a `clip.mp4` there yourself.
+
+### Run individual stages
+
+```bash
+python -m ml.cli detect my_play --data ./data
+```
+
+Stages, in pipeline order: `ingest`, `detect`, `track`, `autocal`, `field`,
+`teamcolor`, `positions`. `all` runs `detect`→`positions` in sequence. Each
+stage reads the artifacts written by the previous one from the play's directory
+under `--data`. The final stage writes `positions.json`, a map from track id to
+position token.
 
 See [`examples/`](examples/) for a sample `positions.json`.
 
@@ -77,7 +105,8 @@ These are inferred purely from field-relative geometry.
 ## Viewer
 
 `viewer/` holds a React Native / Expo + Skia field renderer that draws a field
-and overlays player markers by position token, plus a film-replay overlay. It
+and overlays player markers by position token, plus a film-replay overlay and a
+`FilmUpload` control that opens the system document picker to choose a clip. It
 ships with a neutral color palette and no team branding. The viewer is an
 early-stage port; full Expo build wiring is out of scope for v0.1.
 
