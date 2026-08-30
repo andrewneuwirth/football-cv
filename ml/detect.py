@@ -48,6 +48,20 @@ except Exception:  # pragma: no cover
 _PERSON_CLASS_ID = 1  # COCO category id for "person" (both backends)
 
 
+def _require_detect_deps() -> None:
+    """Fail early with an actionable message if the detection extra is missing."""
+    import importlib.util
+
+    missing = [m for m in ("torch", "ultralytics")
+               if importlib.util.find_spec(m) is None]
+    if missing:
+        raise RuntimeError(
+            "person detection needs the optional 'detect' extra "
+            f"(missing: {', '.join(missing)}). Install it with:\n"
+            "    pip install -e '.[detect]'"
+        )
+
+
 def pick_device() -> str:
     """mps if torch.backends.mps.is_available() else cpu."""
     import torch
@@ -132,6 +146,7 @@ class PersonDetector:
     """
 
     def __init__(self, conf: float = 0.3, imgsz: int = 1920, backend: str | None = None):
+        _require_detect_deps()
         self.conf = float(conf)
         self.imgsz = int(imgsz)
         self.backend = backend or BACKEND
