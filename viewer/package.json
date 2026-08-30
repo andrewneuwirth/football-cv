@@ -1,0 +1,10 @@
+{
+  "name": "football-cv-viewer",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "react": "*",
+    "react-native": "*",
+    "@shopify/react-native-skia": "*"
+  }
+}
