@@ -1,0 +1,12 @@
+[project]
+name = "football-cv"
+version = "0.1.0"
+description = "Computer-vision pipeline for tracking and classifying football players from film"
+requires-python = ">=3.11"
+dependencies = ["numpy", "opencv-python", "scipy", "ultralytics"]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
