@@ -346,10 +346,10 @@ LB_DEEP_OK = 7.0
 W_C_LAT = 0.35         # corners pull hard to their side's wide anchor
 W_C_DEEP = 0.25
 C_DEEP_OK = 12.0
-W_WHIP_LAT = 0.5       # weak overhang chain slot (hypothesis one)...
+W_SAFW_LAT = 0.5       # weak overhang chain slot (hypothesis one)...
 W_WS_DEPTH = 0.3       # ...or the shallower of two deep safeties
 W_WS_LAT = 0.05        # (hypothesis two, the old depth carve-out)
-W_WHIP_DEPTH = 0.2     # mild pull off the LB row
+W_SAFW_DEPTH = 0.2     # mild pull off the LB row
 W_F_DEPTH = 1.0        # F is the deepest back when depth is informative...
 W_F_LAT = 0.08         # ...and the strong chain slot when depth compresses
 WIDE_ANCHOR_MIN = 8.0  # a side's wide anchor must be at least this far out
@@ -1584,8 +1584,8 @@ def _role_cost(
                 + W_LB_DTGT * abs(d - lb_d)
                 + W_LB_DEEP * max(0.0, d - LB_DEEP_OK))
     if role == "saf_w":
-        c = (W_WHIP_LAT * abs(u - u_t) + pen_line
-             + W_WHIP_DEPTH * max(0.0, lb_d - d))
+        c = (W_SAFW_LAT * abs(u - u_t) + pen_line
+             + W_SAFW_DEPTH * max(0.0, lb_d - d))
         if d >= lb_d + UMPIRE_MARGIN and deep_d - d > 0.05 and (
             deep_d - d >= F_DEPTH_MARGIN
             or d >= lb_d + SAFETY_DEPTH
