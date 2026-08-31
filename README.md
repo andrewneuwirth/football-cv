@@ -35,7 +35,7 @@ Most "player tracking" stops at boxes. The hard part is turning those boxes into
 defense, where the ball is. That needs camera calibration to field yards, a
 jersey-color team split, robust snap detection, and filtering out everyone who
 isn't in the play (refs, benches, chain crew). football-cv does all of it and
-emits plain, standard position groups — no scheme- or playbook-specific naming.
+emits plain, standard position groups — no team- or playbook-specific naming.
 
 ## Install
 
