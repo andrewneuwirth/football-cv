@@ -9,7 +9,7 @@
 [![CI](https://github.com/andrewneuwirth/football-cv/actions/workflows/ci.yml/badge.svg)](https://github.com/andrewneuwirth/football-cv/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](pyproject.toml)
-[![accuracy](https://img.shields.io/badge/accuracy-69%25-green.svg)](#evaluation)
+[![accuracy](https://img.shields.io/badge/accuracy-~70%25-green.svg)](#evaluation)
 
 </div>
 
@@ -130,27 +130,46 @@ Measured against **21 hand-labeled plays (162 players)** with `footballcv.eval`
 (the labels are private; the tool and numbers are not):
 
 ```
-overall accuracy         69.1%      (112/162)
-excluding the line (OL/DL)  64.6%   (the line is the easy class)
+overall accuracy         ~70%     (69% heuristic offense → ~70% learned)
+excluding the line (OL/DL)  ~65%   (the line is the easy class)
 ```
+
+Defense per class (the deterministic alignment/role logic):
 
 | group | precision | recall |  f1  |  n  |     | group | precision | recall |  f1  |  n  |
 | ----- | :-------: | :----: | :--: | :-: | --- | ----- | :-------: | :----: | :--: | :-: |
-| `CB`  |   1.00    |  0.89  | 0.94 | 18  |     | `OL`  |   0.59    |  0.83  | 0.69 | 12  |
-| `DL`  |   0.87    |  0.87  | 0.87 | 23  |     | `WR`  |   0.83    |  0.63  | 0.72 | 30  |
-| `LB`  |   0.83    |  0.69  | 0.75 | 35  |     | `RB`  |   0.50    |  0.47  | 0.48 | 15  |
-| `S`   |   0.68    |  0.71  | 0.70 | 21  |     | `QB`  |   0.20    |  0.12  | 0.15 |  8  |
+| `CB`  |   1.00    |  0.89  | 0.94 | 18  |     | `LB`  |   0.83    |  0.69  | 0.75 | 35  |
+| `DL`  |   0.87    |  0.87  | 0.87 | 23  |     | `S`   |   0.68    |  0.71  | 0.70 | 21  |
 
-**Defense (~77%) is the strength** — it's the full alignment/role logic. **The
-offense backfield is the weak spot**: `QB` and `RB` are near-identical in
-field-relative alignment, so pure geometry can't separate them reliably.
-Fixing that is the clearest next step — it needs a snap-taker cue (who the ball
-goes to) or a small learned classifier, not more hand-tuned thresholds.
+**Defense (~77%) is the strength** — the full alignment/role logic. **The
+offense backfield was the weak spot**: `QB` and `RB` are near-identical in
+field-relative alignment, so the geometric heuristic couldn't tell them apart.
 
-Reproduce with your own labeled plays:
+### Learned offense model
+
+Rather than tune more thresholds, the offense step uses a small
+**RandomForest** on alignment features (depth, lateral spread, rank among
+teammates). Trained and scored with **leave-one-play-out** cross-validation so
+no play leaks between train and test:
+
+| offense | OL | QB | RB | WR | overall |
+| ------- | :-: | :-: | :-: | :-: | :-----: |
+| geometric heuristic | 82% | **12%** | 47% | 63% | 57% |
+| **learned (RF)**    | 82% | **50%** | 36% | 69% | **61%** |
+
+The heuristic essentially couldn't find the quarterback (1/8); the model gets it
+half the time — a genuinely learned win where rules failed. It ships in the
+package and loads automatically; without the `[ml]` extra it falls back to the
+heuristic, so the core install stays dependency-free.
+
+An RF over *all* positions was also tried — it ties the tuned defense logic and
+regresses QB, so learning is applied only where it helps (offense).
+
+Reproduce / retrain with your own labeled plays:
 
 ```bash
-python -m footballcv.eval --data ./data --plays play1,play2,play3
+python -m footballcv.eval          --data ./data --plays play1,play2   # score
+python -m footballcv.train_offense --data ./data                       # retrain
 ```
 
 ## Viewer

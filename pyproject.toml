@@ -13,13 +13,18 @@ dependencies = ["numpy", "opencv-python", "scipy"]
 # Person detection (YOLO) pulls in torch and is only needed for the
 # `detect`/`all` stages. The classifier and tests run without it.
 detect = ["ultralytics"]
-dev = ["pytest"]
+# The learned offense classifier — falls back to the geometric heuristic if absent.
+ml = ["scikit-learn", "joblib"]
+dev = ["pytest", "scikit-learn", "joblib"]
 
 [project.scripts]
 football-cv = "footballcv.cli:main"
 
 [tool.setuptools]
 packages = ["footballcv"]
+
+[tool.setuptools.package-data]
+footballcv = ["models/*.joblib"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

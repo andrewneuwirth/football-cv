@@ -2743,9 +2743,14 @@ def run(play_id: str, data_dir: Path) -> None:
     }
     out = {str(t): _generic.get(n, n) for t, n in pos_map.items()}
     try:
+        from footballcv import offense_model
         teams = labels.get("teams", {})
         off_ids = [t for t in core if teams.get(str(t)) == "O"]
-        for t, tok in _classify_offense(off_ids, core, los_x).items():
+        # use the learned model when bundled, else the geometric heuristic
+        off = offense_model.classify(off_ids, core, los_x)
+        if off is None:
+            off = _classify_offense(off_ids, core, los_x)
+        for t, tok in off.items():
             out[str(t)] = tok
     except (NameError, KeyError, TypeError):
         pass
