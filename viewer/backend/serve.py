@@ -43,6 +43,15 @@ def _valid_play(play: str) -> bool:
     return bool(play) and _PLAY_RE.match(play) is not None
 
 
+def _contained(child: Path, base: Path) -> bool:
+    """True iff resolved `child` is inside resolved `base` (traversal-safe)."""
+    try:
+        child.resolve().relative_to(base.resolve())
+        return True
+    except ValueError:
+        return False
+
+
 def _play_dir(play: str) -> Path:
     return PLAYS / play
 
@@ -80,15 +89,15 @@ class Handler(BaseHTTPRequestHandler):
             _, _, _, play, name = parts
             if not _valid_play(play) or not _NAME_RE.match(name):
                 return self._json({"error": "bad request"}, 400)
-            base = _play_dir(play).resolve()
-            f = (base / name).resolve()
-            if not str(f).startswith(str(base) + "/") or not f.is_file():
+            base = _play_dir(play)
+            f = base / name
+            if not _contained(f, base) or not f.is_file():
                 return self._json({"error": "not found"}, 404)
             return self._send(200, f.read_bytes(), "application/json")
         # static
         rel = path.lstrip("/") or "index.html"
-        f = (WEB / rel).resolve()
-        if not str(f).startswith(str(WEB)) or not f.is_file():
+        f = WEB / rel
+        if not _contained(f, WEB) or not f.is_file():
             return self._send(404, b"not found", "text/plain")
         ctype = {
             ".html": "text/html", ".js": "text/javascript", ".css": "text/css",
