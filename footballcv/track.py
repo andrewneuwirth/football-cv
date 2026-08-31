@@ -28,8 +28,8 @@ from pathlib import Path
 import numpy as np
 from scipy.optimize import linear_sum_assignment
 
-from ml.kalman import KalmanBoxTracker
-from ml.paths import play_dir
+from footballcv.kalman import KalmanBoxTracker
+from footballcv.paths import play_dir
 
 # ---------------------------------------------------------------------- IoU
 

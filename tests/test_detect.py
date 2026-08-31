@@ -4,7 +4,7 @@ import importlib.util
 import numpy as np
 import pytest
 
-from ml import detect
+from footballcv import detect
 
 def test_letterbox_params_scales_to_square():
     scale, pad_x, pad_y, new_w, new_h = detect.letterbox_params(1920, 1080, 640)

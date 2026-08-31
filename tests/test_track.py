@@ -1,6 +1,6 @@
 # tests/test_track.py
 import numpy as np
-from ml import track
+from footballcv import track
 
 def test_iou_identical_boxes_is_one():
     b = [0.0, 0.0, 10.0, 10.0]

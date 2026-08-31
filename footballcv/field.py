@@ -22,7 +22,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from ml.paths import play_dir
+from footballcv.paths import play_dir
 
 # Feature / flow tuning
 MAX_FEATURES = 400

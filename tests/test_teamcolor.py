@@ -1,5 +1,5 @@
 import numpy as np
-from ml import teamcolor
+from footballcv import teamcolor
 
 
 def test_green_mask_flags_green_pixels():

@@ -191,12 +191,13 @@ class Handler(BaseHTTPRequestHandler):
         """Run the classification stages that follow detect+track."""
         if not _valid_play(play) or not _play_dir(play).is_dir():
             return self._json({"error": "bad play id"}, 400)
-        stages = ["field", "teamcolor", "positions"]
+        # teamcolor + stitch (merge fragments) before field, then classify
+        stages = ["teamcolor", "stitch", "field", "positions"]
         py = sys.executable
         logs = {}
         for s in stages:
             p = subprocess.run(
-                [py, "-m", "ml.cli", s, play, "--data", str(DATA)],
+                [py, "-m", "footballcv.cli", s, play, "--data", str(DATA)],
                 cwd=str(REPO), capture_output=True, text=True,
             )
             logs[s] = (p.stdout + p.stderr)[-2000:]

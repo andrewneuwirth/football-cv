@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from ml import ingest, paths
+from footballcv import ingest, paths
 
 
 def test_ingest_copies_video_to_clip(tmp_path):

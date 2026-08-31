@@ -1,6 +1,6 @@
 # tests/test_field.py
 import numpy as np
-from ml import field
+from footballcv import field
 
 def test_project_identity_homography():
     H = np.eye(3)

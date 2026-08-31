@@ -1,6 +1,6 @@
 # tests/test_kalman.py
 import numpy as np
-from ml import kalman
+from footballcv import kalman
 
 def test_box_to_z_roundtrip():
     box = np.array([10.0, 20.0, 30.0, 50.0])

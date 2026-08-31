@@ -1,5 +1,5 @@
 # tests/test_cli.py
-from ml import cli
+from footballcv import cli
 
 def test_cli_unknown_stage_returns_nonzero():
     assert cli.main(["bogus", "play1"]) != 0

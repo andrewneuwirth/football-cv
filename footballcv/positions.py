@@ -66,7 +66,7 @@ from typing import Any
 import numpy as np
 from scipy.optimize import linear_sum_assignment
 
-from ml.paths import play_dir
+from footballcv.paths import play_dir
 
 # ---------------------------------------------------------------- tunables
 

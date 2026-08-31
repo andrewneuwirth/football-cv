@@ -1,6 +1,6 @@
 # tests/test_paths.py
 from pathlib import Path
-from ml import paths
+from footballcv import paths
 
 def test_play_dir_under_plays_dir():
     base = Path("/tmp/fcv-test")

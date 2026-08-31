@@ -1,14 +1,14 @@
 # ml/cli.py
-"""Command-line runner: python -m ml.cli <stage> <play_id> [--data DIR] [--video FILM].
+"""Command-line runner: python -m footballcv.cli <stage> <play_id> [--data DIR] [--video FILM].
 
 Upload your own film first, then run the pipeline:
 
-    python -m ml.cli ingest my_play --video film.mp4 --data ./data
-    python -m ml.cli all my_play --data ./data
+    python -m footballcv.cli ingest my_play --video film.mp4 --data ./data
+    python -m footballcv.cli all my_play --data ./data
 """
 import argparse
 from pathlib import Path
-from ml import detect, track, field, autocal, teamcolor, stitch, positions, ingest, paths
+from footballcv import detect, track, field, autocal, teamcolor, stitch, positions, ingest, paths
 
 # stages that run over an already-ingested play (in pipeline order)
 STAGES = {

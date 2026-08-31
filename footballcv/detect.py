@@ -24,7 +24,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from ml.paths import play_dir
+from footballcv.paths import play_dir
 
 # ---------------------------------------------------------------- backend pick
 # Import-time model selection per the contract: prefer rfdetr, fall back to

@@ -4,18 +4,18 @@ Copies a video file to the location every downstream stage reads from —
 ``<data_dir>/plays/<play_id>/clip.mp4`` — creating the play directory if
 needed. This is the "upload film" entry point for the CLI:
 
-    python -m ml.cli ingest my_play --video path/to/film.mp4 --data ./data
+    python -m footballcv.cli ingest my_play --video path/to/film.mp4 --data ./data
 
 After ingest, run the rest of the pipeline on that play id:
 
-    python -m ml.cli all my_play --data ./data
+    python -m footballcv.cli all my_play --data ./data
 """
 from __future__ import annotations
 
 import shutil
 from pathlib import Path
 
-from ml.paths import play_dir
+from footballcv.paths import play_dir
 
 
 def run(play_id: str, data_dir: Path, video: str | Path | None = None) -> Path:

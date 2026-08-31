@@ -1,5 +1,5 @@
 # tests/test_positions.py — exercises pure helpers of the position classifier.
-from ml import positions
+from footballcv import positions
 
 
 def test_median():

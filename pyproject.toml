@@ -11,12 +11,15 @@ dependencies = ["numpy", "opencv-python", "scipy"]
 
 [project.optional-dependencies]
 # Person detection (YOLO) pulls in torch and is only needed for the
-# `detect`/`all` stages. The position classifier, demo, and tests run without it.
+# `detect`/`all` stages. The classifier and tests run without it.
 detect = ["ultralytics"]
 dev = ["pytest"]
 
+[project.scripts]
+football-cv = "footballcv.cli:main"
+
 [tool.setuptools]
-packages = ["ml"]
+packages = ["footballcv"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
