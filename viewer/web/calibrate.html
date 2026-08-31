@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>football-cv · calibrate</title>
+<style>
+  :root{ --primary:#2563eb; --ink:#0b1220; --paper:#0e1526; --card:#131c31;
+         --slate:#94a3b8; --white:#f7f8fa; --good:#22c55e; }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--ink);color:var(--white);
+       font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+       display:flex;min-height:100vh}
+  aside{width:340px;padding:24px;background:var(--paper);border-right:1px solid #1e293b;
+        display:flex;flex-direction:column;gap:16px;overflow:auto}
+  h1{font-size:19px;margin:0}
+  h1 span{color:#60a5fa}
+  .step{font-size:13px;color:var(--slate)}
+  ol{margin:0;padding-left:18px;font-size:13px;color:var(--slate)}
+  ol li{margin:4px 0}
+  main{flex:1;display:flex;align-items:center;justify-content:center;padding:20px;position:relative}
+  .imgwrap{position:relative;max-width:100%;max-height:92vh}
+  img{max-width:100%;max-height:92vh;border-radius:10px;display:block;cursor:crosshair}
+  .marker{position:absolute;width:22px;height:22px;margin:-11px 0 0 -11px;border-radius:50%;
+          background:#f59e0b;border:2px solid #000;color:#000;font-weight:700;font-size:12px;
+          display:flex;align-items:center;justify-content:center;pointer-events:none}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{padding:4px;text-align:left}
+  th{color:var(--slate);font-weight:500;font-size:11px;text-transform:uppercase}
+  input{width:64px;background:var(--card);border:1px solid #1e293b;color:var(--white);
+        border-radius:6px;padding:5px}
+  .mini{background:#1e293b;border:none;color:var(--white);border-radius:5px;padding:4px 7px;
+        cursor:pointer;font-size:11px;margin-left:3px}
+  button.primary{appearance:none;border:none;border-radius:10px;cursor:pointer;
+        background:var(--primary);color:#fff;font-weight:600;font-size:14px;padding:12px}
+  button.primary:disabled{opacity:.4;cursor:not-allowed}
+  button.ghost{background:var(--card);color:var(--white);border:1px solid #1e293b;border-radius:10px;
+        padding:10px;cursor:pointer;font-size:13px}
+  #status{font-size:13px;min-height:18px}
+  .ok{color:var(--good)}
+  .err{color:#f87171}
+  .rm{color:#f87171;cursor:pointer;font-weight:700}
+</style>
+</head>
+<body>
+<aside>
+  <h1>football<span>-cv</span> · calibrate</h1>
+  <div class="step">Play: <b id="play"></b> · frame <b id="frameno"></b> <span id="frametotal"></span></div>
+  <div class="group">
+    <div class="label">Pick a clear frame</div>
+    <input type="range" id="scrub" min="0" max="0" value="0" style="width:100%" />
+    <div style="display:flex;gap:6px;align-items:center">
+      <button class="mini" id="prev">‹ prev</button>
+      <input id="frameinput" type="number" value="0" style="width:78px" />
+      <button class="mini" id="next">next ›</button>
+    </div>
+  </div>
+  <ol>
+    <li>Click where a <b>yard line meets a sideline</b> on the field.</li>
+    <li>Add <b>4+ points</b>: at least <b>two different yard lines</b>, and both <b>near &amp; far sidelines</b>.</li>
+    <li>For each point set <b>Yard</b> (the yard line, 0–100) and <b>Across</b> (0 = near sideline, 53.33 = far).</li>
+    <li><b>Save</b>, then <b>Run analysis</b>.</li>
+  </ol>
+
+  <table>
+    <thead><tr><th>#</th><th>Yard (fx)</th><th>Across (fy)</th><th></th></tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+
+  <button class="primary" id="save" disabled>Save calibration</button>
+  <button class="primary" id="run" disabled style="background:#16a34a">Run analysis →</button>
+  <button class="ghost" id="undo">Undo last point</button>
+  <div id="status"></div>
+</aside>
+
+<main>
+  <div class="imgwrap" id="wrap">
+    <img id="frame" alt="calibration frame" />
+  </div>
+</main>
+
+<script>
+const params = new URLSearchParams(location.search);
+const PLAY = params.get("play") || "ohs005";
+let FRAME = parseInt(params.get("frame") || "0", 10);
+document.getElementById("play").textContent = PLAY;
+
+const img = document.getElementById("frame");
+const wrap = document.getElementById("wrap");
+
+const points = [];   // {px,py,fx,fy}  px/py in NATIVE pixels
+
+img.addEventListener("click", (e) => {
+  const r = img.getBoundingClientRect();
+  const sx = img.naturalWidth / r.width, sy = img.naturalHeight / r.height;
+  const px = (e.clientX - r.left) * sx, py = (e.clientY - r.top) * sy;
+  points.push({ px: +px.toFixed(1), py: +py.toFixed(1), fx: "", fy: "" });
+  render();
+});
+
+document.getElementById("undo").addEventListener("click", () => { points.pop(); render(); });
+
+function render(){
+  // markers
+  [...wrap.querySelectorAll(".marker")].forEach(m => m.remove());
+  const r = img.getBoundingClientRect(), wrapR = wrap.getBoundingClientRect();
+  const sx = r.width / img.naturalWidth, sy = r.height / img.naturalHeight;
+  points.forEach((p, i) => {
+    const m = document.createElement("div");
+    m.className = "marker"; m.textContent = i + 1;
+    m.style.left = ((r.left - wrapR.left) + p.px * sx) + "px";
+    m.style.top  = ((r.top - wrapR.top) + p.py * sy) + "px";
+    wrap.appendChild(m);
+  });
+  // table
+  const rows = document.getElementById("rows");
+  rows.innerHTML = points.map((p, i) => `
+    <tr>
+      <td>${i + 1}</td>
+      <td><input data-i="${i}" data-k="fx" value="${p.fx}" placeholder="e.g. 40"/></td>
+      <td>
+        <input data-i="${i}" data-k="fy" value="${p.fy}" placeholder="0 / 53.33"/>
+        <button class="mini" data-near="${i}">near</button>
+        <button class="mini" data-far="${i}">far</button>
+      </td>
+      <td><span class="rm" data-rm="${i}">×</span></td>
+    </tr>`).join("");
+  rows.querySelectorAll("input").forEach(inp => inp.addEventListener("input", e => {
+    points[+e.target.dataset.i][e.target.dataset.k] = e.target.value;
+    validate();
+  }));
+  rows.querySelectorAll("[data-near]").forEach(b => b.onclick = () => { points[+b.dataset.near].fy = "0"; render(); });
+  rows.querySelectorAll("[data-far]").forEach(b => b.onclick = () => { points[+b.dataset.far].fy = "53.33"; render(); });
+  rows.querySelectorAll("[data-rm]").forEach(b => b.onclick = () => { points.splice(+b.dataset.rm, 1); render(); });
+  validate();
+}
+
+function validate(){
+  const filled = points.filter(p => p.fx !== "" && p.fy !== "");
+  const fxs = new Set(filled.map(p => p.fx)), fys = new Set(filled.map(p => p.fy));
+  const ok = filled.length >= 4 && fxs.size >= 2 && fys.size >= 2;
+  document.getElementById("save").disabled = !ok;
+  const st = document.getElementById("status");
+  if (ok) {
+    const yd = filled.map(p => parseFloat(p.fx));
+    const span = Math.max(...yd) - Math.min(...yd);
+    if (span < 10) {
+      st.textContent = `⚠ your yard lines are only ${span} yd apart — pick two lines farther apart (≥15 yd) for an accurate, uncompressed field`;
+      st.className = "err";
+    } else if (st.className === "err") {
+      st.textContent = ""; st.className = "";
+    }
+  }
+  return ok;
+}
+
+document.getElementById("save").addEventListener("click", async () => {
+  const st = document.getElementById("status");
+  const payload = {
+    frame: FRAME, source: "manual",
+    points: points.filter(p => p.fx !== "" && p.fy !== "")
+      .map(p => ({ px: p.px, py: p.py, fx: parseFloat(p.fx), fy: parseFloat(p.fy) })),
+  };
+  st.textContent = "saving…"; st.className = "";
+  const res = await fetch(`/api/calibrate/${PLAY}`, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  }).then(r => r.json()).catch(e => ({ error: String(e) }));
+  if (res.ok) { st.textContent = `saved ${res.points} points ✓`; st.className = "ok";
+                document.getElementById("run").disabled = false; }
+  else { st.textContent = "save failed: " + (res.error || "?"); st.className = "err"; }
+});
+
+// --- frame chooser: calibration is tied to one frame; changing it clears points
+let NFRAMES = 1;
+const scrub = document.getElementById("scrub");
+const frameInput = document.getElementById("frameinput");
+
+function setFrame(n, clearPoints = true) {
+  n = Math.max(0, Math.min(NFRAMES - 1, Math.round(n) || 0));
+  FRAME = n;
+  document.getElementById("frameno").textContent = n;
+  scrub.value = n;
+  frameInput.value = n;
+  img.src = `/api/frame/${PLAY}?i=${n}`;
+  if (clearPoints && points.length) { points.length = 0; render(); }
+}
+
+scrub.addEventListener("input", (e) => setFrame(+e.target.value));
+frameInput.addEventListener("change", (e) => setFrame(+e.target.value));
+document.getElementById("prev").addEventListener("click", () => setFrame(FRAME - 1));
+document.getElementById("next").addEventListener("click", () => setFrame(FRAME + 1));
+
+fetch(`/api/meta/${PLAY}`).then(r => r.json()).then(m => {
+  NFRAMES = Math.max(1, m.frames || 1);
+  scrub.max = NFRAMES - 1;
+  frameInput.max = NFRAMES - 1;
+  document.getElementById("frametotal").textContent = `/ ${NFRAMES - 1}`;
+  setFrame(FRAME, false);
+}).catch(() => setFrame(FRAME, false));
+
+document.getElementById("run").addEventListener("click", async () => {
+  const st = document.getElementById("status");
+  st.textContent = "running field → teamcolor → positions… (this takes a bit)"; st.className = "";
+  const res = await fetch(`/api/analyze/${PLAY}`, { method: "POST" })
+    .then(r => r.json()).catch(e => ({ error: String(e) }));
+  if (res.ok) {
+    const n = Object.keys(res.positions || {}).length;
+    st.innerHTML = `<span class="ok">classified ${n} players ✓</span> — ` +
+      `<a href="/result.html?play=${encodeURIComponent(PLAY)}">▶ watch the overlay</a>`;
+  } else {
+    st.innerHTML = `<span class="err">analyze failed at ${res.failed || "?"}</span><br><small>${(res.logs && res.logs[res.failed]) || res.error || ""}</small>`;
+  }
+});
+</script>
+</body>
+</html>

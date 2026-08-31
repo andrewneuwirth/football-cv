@@ -4,6 +4,6 @@ __pycache__/
 node_modules/
 .expo/
 dist/
+*.egg-info/
 *.mp4
-!examples/demo.mp4
 data/

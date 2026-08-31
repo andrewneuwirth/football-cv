@@ -1,45 +1,33 @@
-# tests/test_positions.py — field coords are (down, across) in yards; los is a `down`.
+# tests/test_positions.py — exercises pure helpers of the position classifier.
 from ml import positions
 
-LOS = 50.0
-MID = positions.FIELD_WIDTH_YD / 2.0  # field center (across)
+
+def test_median():
+    assert positions._median([3.0, 1.0, 2.0]) == 2.0
+    assert positions._median([1.0, 2.0, 3.0, 4.0]) == 2.5
+    assert positions._median([]) == 0.0
 
 
-def test_defensive_line_on_the_line_is_DL():
-    assert positions.classify_player(down=50.9, across=MID, los=LOS, side="D") == "DL"
+def test_find_snap_detects_spike_after_still():
+    # a long still stretch then a sustained speed spike = the snap
+    speeds = [0.1] * 16 + [5.0, 5.0, 5.0, 0.2]
+    idx, confident, _low = positions._find_snap(speeds)
+    assert confident is True
+    assert idx == 16
 
 
-def test_deep_middle_defender_is_S():
-    assert positions.classify_player(down=61.0, across=MID, los=LOS, side="D") == "S"
+def test_find_snap_no_motion_is_unreliable():
+    idx, confident, _low = positions._find_snap([0.1, 0.1, 0.1, 0.1])
+    assert confident is False
 
 
-def test_wide_defender_is_CB():
-    assert positions.classify_player(down=56.0, across=4.0, los=LOS, side="D") == "CB"
+def test_confident_color_thresholds():
+    colors = {1: ("A", 0.9), 2: ("B", 0.5), 3: ("ref", 1.0)}
+    assert positions._confident_color(colors, 1) == "A"   # confident A
+    assert positions._confident_color(colors, 2) is None  # below the color-conf bar
+    assert positions._confident_color(colors, 3) is None  # official, not a team
+    assert positions._confident_color(colors, 99) is None  # unknown track
 
 
-def test_off_line_defender_is_LB():
-    assert positions.classify_player(down=54.5, across=MID, los=LOS, side="D") == "LB"
-
-
-def test_offensive_line_is_OL():
-    assert positions.classify_player(down=49.4, across=MID, los=LOS, side="O") == "OL"
-
-
-def test_split_offense_is_WR():
-    assert positions.classify_player(down=49.4, across=6.0, los=LOS, side="O") == "WR"
-
-
-def test_quarterback_is_centered_and_deep():
-    assert positions.classify_player(down=44.5, across=MID, los=LOS, side="O") == "QB"
-
-
-def test_offset_back_is_RB():
-    assert positions.classify_player(down=44.0, across=MID + 5.0, los=LOS, side="O") == "RB"
-
-
-def test_classify_play_labels_both_sides():
-    alignment = {1: (49.4, MID), 2: (49.4, 4.0), 11: (50.9, MID), 12: (61.0, MID)}
-    split = {1: "O", 2: "O", 11: "D", 12: "D"}
-    out = positions.classify_play(alignment, split, los=LOS)
-    assert out[1] == "OL" and out[2] == "WR"
-    assert out[11] == "DL" and out[12] == "S"
+def test_module_exposes_run():
+    assert callable(positions.run)

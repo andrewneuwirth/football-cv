@@ -5,12 +5,11 @@
 A sample of the `positions.json` artifact written by the final pipeline stage
 (`python -m ml.cli positions <play_id> --data ./data`).
 
-It maps each tracked player's track id to a generic position token:
+It maps each classified defender's track id to a standard position group:
 
 ```json
-{ "1": "OL", "2": "WR", "3": "QB", "4": "RB", "11": "DL", "12": "LB", "13": "CB", "14": "S" }
+{ "3": "DL", "7": "DL", "11": "DL", "14": "DL", "22": "LB", "25": "LB", "31": "CB", "38": "CB", "44": "S", "47": "S" }
 ```
 
-Track ids `1–4` are offensive players (`OL`, `WR`, `QB`, `RB`); `11–14` are
-defensive players (`DL`, `LB`, `CB`, `S`). Tokens come from the taxonomy
-documented in the top-level [README](../README.md#position-taxonomy).
+Tokens come from the groups documented in the top-level
+[README](../README.md#position-groups): `DL` `LB` `CB` `S`.

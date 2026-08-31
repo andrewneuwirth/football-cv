@@ -1,10 +1,9 @@
 # football-cv
 
-Generic computer-vision pipeline for tracking football players from film and
-classifying them into standard positions. Point it at a play, and it detects
+Computer-vision pipeline for football film. Point it at a play and it detects
 every player, tracks them across frames, calibrates the camera to field
-coordinates, assigns teams by jersey color, and labels each tracked player with
-a generic position token.
+coordinates, assigns teams by jersey color, and classifies the **defense** into
+standard position groups.
 
 MIT licensed.
 
@@ -12,48 +11,30 @@ MIT licensed.
 
 ```
 film → person detection → multi-object tracking → field calibration
-     → team assignment → generic position classification → positions.json
+     → team assignment → position classification → positions.json
 ```
 
 Each stage is an independent module under `ml/` that reads and writes per-play
-artifacts on disk. The headline module is `ml/positions.py`: a pure,
-geometry-driven classifier that maps a player's field-relative alignment to a
-standard position. It uses only generic football geometry (line of scrimmage,
-offense/defense split, alignment depth and width) — no proprietary playbook
-logic.
-
-## Demo
-
-![Generic position classification on a synthetic play](examples/demo.png)
-
-The classifier assigns a generic position to every player from geometry alone.
-The image above is produced by the bundled demo — no film and no torch required
-(it runs on `numpy` + `opencv` only):
-
-```bash
-pip install -e .
-python -m ml.demo          # writes examples/demo.png, demo.mp4, demo.positions.json
-```
-
-A short clip of the same play is at [`examples/demo.mp4`](examples/demo.mp4).
+artifacts on disk. The headline module is `ml/positions.py`: it takes the
+field-projected tracks, strips officials and sideline crews, splits offense from
+defense by jersey color, finds the line of scrimmage and the snap, and labels
+each defender by alignment. Output is only the generic position groups
+`DL / LB / CB / S` — no playbook-specific naming.
 
 ## Install
 
 ```bash
-pip install -e .              # classifier + demo (numpy, opencv-python, scipy)
+pip install -e .              # the classifier (numpy, scipy) + pipeline
 pip install -e ".[detect]"    # + YOLO person detection (pulls in torch)
 pip install -e ".[dev]"       # + test dependencies (pytest)
 ```
 
 Requires Python 3.11+. Person detection (`ultralytics`/YOLO, and therefore
-torch) is an optional extra — the position classifier, demo, and tests run
-without it.
+torch) is an optional extra — the classifier and tests run without it.
 
 ## Usage
 
 ### Bring your own film
-
-Upload a clip, then run the pipeline on it:
 
 ```bash
 # copy your film into place as a named play
@@ -66,6 +47,11 @@ python -m ml.cli all my_play --data ./data
 `ingest` copies your video to `data/plays/<play_id>/clip.mp4`, which every
 downstream stage reads. You can also drop a `clip.mp4` there yourself.
 
+Field calibration needs a one-time reference: mark ≥4 field points (yard-line ×
+sideline intersections) on one frame to write `calibration.json`. The browser
+tool under `viewer/` does this; `autocal` then transfers that calibration to
+other plays in the same game by feature matching.
+
 ### Run individual stages
 
 ```bash
@@ -75,40 +61,37 @@ python -m ml.cli detect my_play --data ./data
 Stages, in pipeline order: `ingest`, `detect`, `track`, `autocal`, `field`,
 `teamcolor`, `positions`. `all` runs `detect`→`positions` in sequence. Each
 stage reads the artifacts written by the previous one from the play's directory
-under `--data`. The final stage writes `positions.json`, a map from track id to
-position token.
+under `--data`. The final stage writes `positions.json` (a map from track id to
+position group) and a richer `labels.json` (teams, line of scrimmage, snap).
 
 See [`examples/`](examples/) for a sample `positions.json`.
 
-## Position taxonomy
+## Position groups
 
-The classifier emits eight generic tokens — four per side of the ball:
+The classifier labels defenders with four standard groups, inferred from
+field-relative alignment:
 
-| Side    | Tokens                                   |
-| ------- | ---------------------------------------- |
-| Defense | `DL` `LB` `CB` `S`                       |
-| Offense | `OL` `QB` `RB` `WR`                      |
-
-| Token | Position          | Read                                         |
-| ----- | ----------------- | -------------------------------------------- |
-| `DL`  | Defensive line    | On the line, defensive side                  |
-| `LB`  | Linebacker        | A few yards off the line, inside             |
-| `CB`  | Cornerback        | Near the line depth but split wide           |
-| `S`   | Safety            | Deep off the line, toward the middle         |
-| `OL`  | Offensive line    | On the line, offensive side                  |
-| `QB`  | Quarterback       | Deepest, laterally centered back             |
-| `RB`  | Running back      | In the backfield, off center                 |
-| `WR`  | Wide receiver     | Split wide from the offensive line           |
-
-These are inferred purely from field-relative geometry.
+| Token | Position       | Read                                        |
+| ----- | -------------- | ------------------------------------------- |
+| `DL`  | Defensive line | On the line of scrimmage                    |
+| `LB`  | Linebacker     | A few yards off the line, inside            |
+| `CB`  | Cornerback     | Pressed wide, near the boundary             |
+| `S`   | Safety         | Deep off the line, toward the middle        |
 
 ## Viewer
 
-`viewer/` holds a React Native / Expo + Skia field renderer that draws a field
-and overlays player markers by position token, plus a film-replay overlay and a
-`FilmUpload` control that opens the system document picker to choose a clip. It
-ships with a neutral color palette and no team branding. The viewer is an
-early-stage port; full Expo build wiring is out of scope for v0.1.
+`viewer/` holds a browser-based field viewer and calibration tool:
+
+- `viewer/web/` — a zero-build calibration UI (`calibrate.html`, with a frame
+  scrubber) and an overlay viewer (`result.html`) that draws the classified
+  positions on the film.
+- `viewer/backend/serve.py` — a small local server that serves the UI, saves
+  calibrations, runs the pipeline, and renders the overlay.
+- `viewer/field/` — React Native / Expo + Skia components (an early-stage port;
+  full Expo build wiring is out of scope for v0.1).
+
+Run the local viewer with `python viewer/backend/serve.py` and open
+`http://localhost:8000/calibrate.html?play=<play_id>`.
 
 ## License
 

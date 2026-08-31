@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>football-cv · viewer</title>
+<style>
+  :root {
+    --primary: #2563eb;
+    --primary-light: #60a5fa;
+    --ink: #0b1220;
+    --paper: #0e1526;
+    --card: #131c31;
+    --slate: #94a3b8;
+    --white: #f7f8fa;
+    --offense: #2cd4d4;   /* cyan */
+    --defense: #e6b31e;   /* gold */
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--ink); color: var(--white);
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    display: flex; min-height: 100vh;
+  }
+  aside {
+    width: 300px; padding: 28px 24px; background: var(--paper);
+    border-right: 1px solid #1e293b; display: flex; flex-direction: column; gap: 22px;
+  }
+  h1 { font-size: 20px; margin: 0; letter-spacing: -0.02em; }
+  h1 span { color: var(--primary-light); }
+  h1 + .sub { margin-top: 4px; }
+  .sub { color: var(--slate); font-size: 13px; }
+  .group { display: flex; flex-direction: column; gap: 10px; }
+  .label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--slate); }
+  button, .btn {
+    appearance: none; border: none; border-radius: 10px; cursor: pointer;
+    background: var(--primary); color: var(--white); font-weight: 600; font-size: 14px;
+    padding: 12px 16px; text-align: center; transition: filter .15s;
+  }
+  button:hover, .btn:hover { filter: brightness(1.1); }
+  .toggle { display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; }
+  .toggle input { width: 18px; height: 18px; accent-color: var(--primary); }
+  .legend { display: flex; gap: 18px; }
+  .legend .item { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+  .dot { width: 14px; height: 14px; border-radius: 50%; }
+  .counts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .chip { background: var(--card); border-radius: 8px; padding: 8px 0; text-align: center; }
+  .chip b { display: block; font-size: 16px; }
+  .chip span { font-size: 11px; color: var(--slate); }
+  main { flex: 1; display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .stage { position: relative; }
+  canvas { border-radius: 14px; box-shadow: 0 20px 60px rgba(0,0,0,.5); display: block; }
+  #film { display: none; max-width: 1100px; width: 1100px; border-radius: 14px; }
+  #filmnote { position: absolute; left: 0; right: 0; bottom: -34px; text-align: center;
+              color: var(--slate); font-size: 13px; }
+  #tip {
+    position: fixed; pointer-events: none; background: #000c; color: #fff; padding: 6px 10px;
+    border-radius: 8px; font-size: 13px; transform: translate(-50%, -140%); opacity: 0; transition: opacity .1s;
+    white-space: nowrap;
+  }
+  .foot { color: var(--slate); font-size: 12px; margin-top: auto; }
+  .foot code { color: var(--primary-light); }
+</style>
+</head>
+<body>
+<aside>
+  <div>
+    <h1>football<span>-cv</span></h1>
+    <div class="sub">generic position classification</div>
+  </div>
+
+  <div class="group">
+    <div class="label">Film</div>
+    <button id="uploadBtn" class="btn" type="button">Upload film</button>
+    <input id="filepick" type="file" accept="video/*" hidden />
+    <div id="filename" class="sub"></div>
+  </div>
+
+  <div class="group">
+    <div class="label">Overlay</div>
+    <label class="toggle"><input id="showLabels" type="checkbox" checked /> Position labels</label>
+    <label class="toggle"><input id="showOffense" type="checkbox" checked /> Offense</label>
+    <label class="toggle"><input id="showDefense" type="checkbox" checked /> Defense</label>
+  </div>
+
+  <div class="group">
+    <div class="label">Legend</div>
+    <div class="legend">
+      <div class="item"><span class="dot" style="background:var(--offense)"></span>offense</div>
+      <div class="item"><span class="dot" style="background:var(--defense)"></span>defense</div>
+    </div>
+  </div>
+
+  <div class="group">
+    <div class="label">Counts</div>
+    <div id="counts" class="counts"></div>
+  </div>
+
+  <div class="foot">
+    Rendered from the classifier's output for a synthetic snap.<br>
+    Regenerate data with <code>python -m ml.demo</code>.
+  </div>
+</aside>
+
+<main>
+  <div class="stage">
+    <video id="film" controls playsinline></video>
+    <canvas id="field" width="1100" height="680"></canvas>
+    <div id="filmnote"></div>
+  </div>
+</main>
+<div id="tip"></div>
+
+<script>
+// The synthetic snap + the classifier's tokens (from `python -m ml.demo`).
+// x = yards across (0 = ball), d = yards from the line of scrimmage.
+const PLAYERS = [
+  // offense
+  {id:1,x:-4,d:0.3,side:"O",pos:"OL"},{id:2,x:-2,d:0.3,side:"O",pos:"OL"},
+  {id:3,x:0,d:0.3,side:"O",pos:"OL"},{id:4,x:2,d:0.3,side:"O",pos:"OL"},
+  {id:5,x:4,d:0.3,side:"O",pos:"OL"},{id:6,x:-18,d:0.3,side:"O",pos:"WR"},
+  {id:7,x:18,d:0.3,side:"O",pos:"WR"},{id:8,x:-12,d:0.3,side:"O",pos:"WR"},
+  {id:9,x:0,d:5.5,side:"O",pos:"QB"},{id:10,x:-3,d:6,side:"O",pos:"RB"},
+  {id:11,x:3,d:6,side:"O",pos:"RB"},
+  // defense
+  {id:21,x:-3,d:1,side:"D",pos:"DL"},{id:22,x:-1,d:1,side:"D",pos:"DL"},
+  {id:23,x:1,d:1,side:"D",pos:"DL"},{id:24,x:3,d:1,side:"D",pos:"DL"},
+  {id:25,x:-4,d:4.5,side:"D",pos:"LB"},{id:26,x:0,d:4.5,side:"D",pos:"LB"},
+  {id:27,x:4,d:4.5,side:"D",pos:"LB"},{id:28,x:-18,d:6,side:"D",pos:"CB"},
+  {id:29,x:18,d:6,side:"D",pos:"CB"},{id:30,x:-6,d:12,side:"D",pos:"S"},
+  {id:31,x:6,d:12,side:"D",pos:"S"},
+];
+const FULLNAME = {DL:"Defensive line",LB:"Linebacker",CB:"Cornerback",S:"Safety",
+  OL:"Offensive line",QB:"Quarterback",RB:"Running back",WR:"Wide receiver"};
+
+const cv = document.getElementById("field"), ctx = cv.getContext("2d");
+const W = cv.width, H = cv.height, M = 70;
+const OFF = "#2cd4d4", DEF = "#e6b31e";
+const state = { labels:true, offense:true, defense:true };
+const film = document.getElementById("film");
+let hasFilm = false;
+
+// field yards -> px.  x in [-26.65,26.65];  renderY in [-8,14]
+function toPx(x, ry){
+  return [ M + (x+26.65)/53.3 * (W-2*M), M + (ry+8)/22 * (H-2*M) ];
+}
+function screenXY(p){
+  const ry = p.side === "O" ? -p.d : p.d;
+  return toPx(p.x, ry);
+}
+
+function draw(){
+  ctx.fillStyle = "#356537"; ctx.fillRect(0,0,W,H);
+  // yard lines
+  ctx.strokeStyle = "rgba(150,170,150,.55)"; ctx.lineWidth = 1;
+  for(let xg=-25; xg<=25; xg+=5){
+    const [x0] = toPx(xg,-8), [x1] = toPx(xg,14);
+    ctx.beginPath(); ctx.moveTo(x0,M); ctx.lineTo(x1,H-M); ctx.stroke();
+  }
+  // line of scrimmage
+  const [lx0,ly] = toPx(-26.65,0), [lx1] = toPx(26.65,0);
+  ctx.strokeStyle = "#f2f2f2"; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(lx0,ly); ctx.lineTo(lx1,ly); ctx.stroke();
+  ctx.fillStyle = "#f2f2f2"; ctx.font = "600 14px sans-serif"; ctx.fillText("LOS", lx1-42, ly-8);
+
+  for(const p of PLAYERS){
+    if(p.side==="O" && !state.offense) continue;
+    if(p.side==="D" && !state.defense) continue;
+    const [px,py] = screenXY(p);
+    ctx.beginPath(); ctx.arc(px,py,15,0,7); ctx.fillStyle = p.side==="O"?OFF:DEF; ctx.fill();
+    ctx.lineWidth=1.5; ctx.strokeStyle="#0b1220aa"; ctx.stroke();
+    if(state.labels){
+      ctx.fillStyle="#0b1220"; ctx.font="700 12px sans-serif"; ctx.textAlign="center";
+      ctx.fillText(p.pos, px, py+4); ctx.textAlign="left";
+    }
+  }
+}
+
+// hover tooltip
+const tip = document.getElementById("tip");
+cv.addEventListener("mousemove", e=>{
+  const r = cv.getBoundingClientRect();
+  const mx = (e.clientX-r.left)*(W/r.width), my=(e.clientY-r.top)*(H/r.height);
+  let hit=null;
+  for(const p of PLAYERS){
+    if(p.side==="O"&&!state.offense) continue; if(p.side==="D"&&!state.defense) continue;
+    const [px,py]=screenXY(p); if((mx-px)**2+(my-py)**2 <= 18*18){ hit=p; break; }
+  }
+  if(hit){ tip.textContent = `${hit.pos} — ${FULLNAME[hit.pos]}`;
+    tip.style.left=e.clientX+"px"; tip.style.top=e.clientY+"px"; tip.style.opacity=1; cv.style.cursor="pointer"; }
+  else { tip.style.opacity=0; cv.style.cursor="default"; }
+});
+
+// counts
+function renderCounts(){
+  const order=["DL","LB","CB","S","OL","QB","RB","WR"], c={};
+  for(const p of PLAYERS) c[p.pos]=(c[p.pos]||0)+1;
+  document.getElementById("counts").innerHTML =
+    order.map(k=>`<div class="chip"><b>${c[k]||0}</b><span>${k}</span></div>`).join("");
+}
+
+// controls
+const bind=(id,key)=>document.getElementById(id).addEventListener("change",e=>{state[key]=e.target.checked;draw();});
+bind("showLabels","labels"); bind("showOffense","offense"); bind("showDefense","defense");
+
+// upload film — show the real clip with native controls. NOTE: this does NOT
+// run detection/classification on your film (that needs the ML backend). The
+// sample field diagram is hidden while you watch your own film so we never
+// overlay fake positions on real footage.
+const filepick = document.getElementById("filepick");
+document.getElementById("uploadBtn").addEventListener("click", () => filepick.click());
+filepick.addEventListener("change", e=>{
+  const f = e.target.files[0]; if(!f) return;
+  document.getElementById("filename").textContent = f.name;
+  film.src = URL.createObjectURL(f);
+  cv.style.display = "none";                 // hide the sample diagram
+  film.style.display = "block";              // show the real film w/ controls
+  document.getElementById("filmnote").textContent =
+    "your film (playback only) — auto position overlays require the analysis backend";
+  film.play().catch(()=>{});
+});
+
+// draw the sample field diagram (shown until a film is uploaded)
+renderCounts();
+draw();
+</script>
+</body>
+</html>
