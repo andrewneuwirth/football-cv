@@ -2089,6 +2089,43 @@ def _nearest_anchor(
     return name
 
 
+# ------------------------------------------------- generic offense classifier
+# The defense gets full role logic above; the offense is tagged generically from
+# alignment (on-line = OL, split wide = WR, deep-centered = QB, else RB).
+_OFF_LINE_BAND = 1.8    # within this of the LOS reads as on the line
+_OFF_WIDE_YD = 12.0     # this far from the formation center reads as split wide
+_OFF_BACKFIELD_YD = 3.0  # bodies deeper than this off the line are backs / QB
+_OFF_QB_LAT = 3.0       # a back within this of center (and deepest) is the QB
+
+
+def _classify_offense(off_ids, pts, los_x):
+    """{track_id: OL/QB/RB/WR} for the offense from field-relative alignment."""
+    if not off_ids:
+        return {}
+    center_y = _median([pts[t][1] for t in off_ids])
+    out: dict[int, str] = {}
+    for t in off_ids:
+        x, y = pts[t]
+        depth = abs(x - los_x)
+        lateral = abs(y - center_y)
+        if lateral >= _OFF_WIDE_YD:
+            out[t] = "WR"
+        elif depth <= _OFF_LINE_BAND:
+            out[t] = "OL"
+        elif depth >= _OFF_BACKFIELD_YD:
+            out[t] = "QB" if lateral <= _OFF_QB_LAT else "RB"
+        else:
+            out[t] = "WR"
+    # exactly one QB: keep the deepest centered back, demote the rest to RB
+    qbs = [t for t in out if out[t] == "QB"]
+    if len(qbs) > 1:
+        deepest = max(qbs, key=lambda t: abs(pts[t][0] - los_x))
+        for t in qbs:
+            if t != deepest:
+                out[t] = "RB"
+    return out
+
+
 # ---------------------------------------------------------------- entry point
 
 
@@ -2692,16 +2729,22 @@ def run(play_id: str, data_dir: Path) -> None:
     labels["position_confidence"] = {k: round(v, 3) for k, v in conf_map.items()}
     _write(pdir, labels)
 
-    # football-cv generic output: always collapse internal slot ids to the
-    # standard groups and write positions.json for the pipeline / viewer.
+    # football-cv generic output: collapse the defensive slot ids to standard
+    # groups, classify the offense generically, and write positions.json.
     _generic = {
         "dl_es": "DL", "dl_ew": "DL", "T": "DL", "N": "DL",
         "lb_a": "LB", "lb_b": "LB", "lb_c": "LB",
         "cb_s": "CB", "cb_w": "CB", "F": "S", "saf_w": "S",
     }
-    (pdir / "positions.json").write_text(
-        json.dumps({str(t): _generic.get(n, n) for t, n in pos_map.items()})
-    )
+    out = {str(t): _generic.get(n, n) for t, n in pos_map.items()}
+    try:
+        teams = labels.get("teams", {})
+        off_ids = [t for t in core if teams.get(str(t)) == "O"]
+        for t, tok in _classify_offense(off_ids, core, los_x).items():
+            out[str(t)] = tok
+    except (NameError, KeyError, TypeError):
+        pass
+    (pdir / "positions.json").write_text(json.dumps(out))
 
 
 def _write(pdir: Path, labels: dict) -> None:
