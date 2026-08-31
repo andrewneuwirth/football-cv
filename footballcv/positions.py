@@ -2091,38 +2091,43 @@ def _nearest_anchor(
 
 # ------------------------------------------------- generic offense classifier
 # The defense gets full role logic above; the offense is tagged generically from
-# alignment (on-line = OL, split wide = WR, deep-centered = QB, else RB).
+# alignment: on the line + central = OL (wider on the line = slot WR), split wide
+# = WR, and in the backfield the single most-central body is the QB, the rest RBs.
 _OFF_LINE_BAND = 1.8    # within this of the LOS reads as on the line
-_OFF_WIDE_YD = 12.0     # this far from the formation center reads as split wide
-_OFF_BACKFIELD_YD = 3.0  # bodies deeper than this off the line are backs / QB
-_OFF_QB_LAT = 3.0       # a back within this of center (and deepest) is the QB
+_OFF_OL_LAT = 8.0       # OL sit within this of the line's center; wider = slot WR
+_OFF_WIDE_YD = 10.0     # this far from the formation center reads as split wide
+_OFF_BACKFIELD_YD = 2.2  # bodies deeper than this off the line are backs / QB
+_OFF_QB_LAT = 4.0       # the QB is the most-central back, within this of center
 
 
 def _classify_offense(off_ids, pts, los_x):
     """{track_id: OL/QB/RB/WR} for the offense from field-relative alignment."""
     if not off_ids:
         return {}
-    center_y = _median([pts[t][1] for t in off_ids])
+    depth = {t: abs(pts[t][0] - los_x) for t in off_ids}
+    # center the formation on the on-line cluster (the linemen), not on every
+    # body — wide receivers would otherwise drag the median off the ball.
+    online = [t for t in off_ids if depth[t] <= _OFF_LINE_BAND]
+    center_y = _median([pts[t][1] for t in (online or off_ids)])
+    lateral = {t: abs(pts[t][1] - center_y) for t in off_ids}
     out: dict[int, str] = {}
+    backs = []
     for t in off_ids:
-        x, y = pts[t]
-        depth = abs(x - los_x)
-        lateral = abs(y - center_y)
-        if lateral >= _OFF_WIDE_YD:
+        if lateral[t] >= _OFF_WIDE_YD:
             out[t] = "WR"
-        elif depth <= _OFF_LINE_BAND:
-            out[t] = "OL"
-        elif depth >= _OFF_BACKFIELD_YD:
-            out[t] = "QB" if lateral <= _OFF_QB_LAT else "RB"
+        elif depth[t] <= _OFF_LINE_BAND:
+            # on the line: central bodies are linemen, wider ones are slot/tight WR
+            out[t] = "OL" if lateral[t] <= _OFF_OL_LAT else "WR"
+        elif depth[t] >= _OFF_BACKFIELD_YD:
+            backs.append(t)
         else:
-            out[t] = "WR"
-    # exactly one QB: keep the deepest centered back, demote the rest to RB
-    qbs = [t for t in out if out[t] == "QB"]
-    if len(qbs) > 1:
-        deepest = max(qbs, key=lambda t: abs(pts[t][0] - los_x))
-        for t in qbs:
-            if t != deepest:
-                out[t] = "RB"
+            out[t] = "WR"   # off the line, not deep, not wide -> slot receiver
+    # QB vs RB: geometrically alike, so pick the SINGLE most-central back as QB
+    # (RBs beside/behind offset from center); everyone else in the backfield is RB.
+    if backs:
+        qb = min(backs, key=lambda t: lateral[t])
+        for t in backs:
+            out[t] = "QB" if (t == qb and lateral[t] <= _OFF_QB_LAT) else "RB"
     return out
 
 
