@@ -47,17 +47,20 @@
   <h1>football<span>-cv</span> · calibrate</h1>
   <div class="step">Play: <b id="play"></b> · frame <b id="frameno"></b> <span id="frametotal"></span></div>
   <div class="group">
-    <div class="label">Pick a clear frame</div>
+    <div class="label">Scrub to a clean pre-snap frame</div>
     <input type="range" id="scrub" min="0" max="0" value="0" style="width:100%" />
     <div style="display:flex;gap:6px;align-items:center">
       <button class="mini" id="prev">‹ prev</button>
       <input id="frameinput" type="number" value="0" style="width:78px" />
       <button class="mini" id="next">next ›</button>
     </div>
+    <button class="mini" id="marksnap" style="align-self:flex-start">◉ Mark this frame as the snap</button>
+    <span class="step" id="snapstatus"></span>
   </div>
   <ol>
+    <li><b>Scrub</b> to a clean pre-snap frame (both teams lined up); <b>Mark</b> it as the snap.</li>
     <li>Click where a <b>yard line meets a sideline</b> on the field.</li>
-    <li>Add <b>4+ points</b>: at least <b>two different yard lines</b>, and both <b>near &amp; far sidelines</b>.</li>
+    <li>Add <b>4+ points</b>: <b>two yard lines ≥15 yd apart</b>, each at both <b>near &amp; far sidelines</b>.</li>
     <li>For each point set <b>Yard</b> (the yard line, 0–100) and <b>Across</b> (0 = near sideline, 53.33 = far).</li>
     <li><b>Save</b>, then <b>Run analysis</b>.</li>
   </ol>
@@ -190,6 +193,16 @@ scrub.addEventListener("input", (e) => setFrame(+e.target.value));
 frameInput.addEventListener("change", (e) => setFrame(+e.target.value));
 document.getElementById("prev").addEventListener("click", () => setFrame(FRAME - 1));
 document.getElementById("next").addEventListener("click", () => setFrame(FRAME + 1));
+
+document.getElementById("marksnap").addEventListener("click", async () => {
+  const ss = document.getElementById("snapstatus");
+  ss.textContent = "…";
+  const res = await fetch(`/api/snap/${PLAY}`, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ frame: FRAME }),
+  }).then(r => r.json()).catch(e => ({ error: String(e) }));
+  ss.textContent = res.ok ? `snap = frame ${res.frame} ✓` : "failed";
+});
 
 fetch(`/api/meta/${PLAY}`).then(r => r.json()).then(m => {
   NFRAMES = Math.max(1, m.frames || 1);

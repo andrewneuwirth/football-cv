@@ -158,6 +158,17 @@ class Handler(BaseHTTPRequestHandler):
             (pdir / "calibration.json").write_text(json.dumps(body, indent=2))
             return self._json({"ok": True, "points": len(body.get("points", []))})
 
+        if u.path.startswith("/api/snap/"):
+            play = u.path.split("/")[-1]
+            if not _valid_play(play) or not _play_dir(play).is_dir():
+                return self._json({"error": "bad play id"}, 400)
+            try:
+                frame = int(body.get("frame"))
+            except (TypeError, ValueError):
+                return self._json({"error": "bad frame"}, 400)
+            (_play_dir(play) / "snap.json").write_text(json.dumps({"frame": frame}))
+            return self._json({"ok": True, "frame": frame})
+
         if u.path.startswith("/api/analyze/"):
             play = u.path.split("/")[-1]
             return self._analyze(play)
