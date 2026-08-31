@@ -8,14 +8,17 @@ Upload your own film first, then run the pipeline:
 """
 import argparse
 from pathlib import Path
-from ml import detect, track, field, autocal, teamcolor, positions, ingest, paths
+from ml import detect, track, field, autocal, teamcolor, stitch, positions, ingest, paths
 
 # stages that run over an already-ingested play (in pipeline order)
 STAGES = {
     "detect": detect.run, "track": track.run, "field": field.run,
-    "autocal": autocal.run, "teamcolor": teamcolor.run, "positions": positions.run,
+    "autocal": autocal.run, "teamcolor": teamcolor.run,
+    "stitch": stitch.stitch, "positions": positions.run,
 }
-ORDER = ["detect", "track", "autocal", "field", "teamcolor", "positions"]
+# teamcolor + stitch run before field so the fragment-merged tracks get
+# projected once; positions then sees one track per player.
+ORDER = ["detect", "track", "teamcolor", "stitch", "autocal", "field", "positions"]
 
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(prog="football-cv")
