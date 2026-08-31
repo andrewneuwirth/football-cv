@@ -389,11 +389,14 @@ def autocalibrate(target_play: str, data_dir: Path, max_refs: int = 14) -> dict 
 
 
 def run(play_id: str, data_dir: Path) -> None:
-    """Stage entry point (server background runner). Raises if nothing transfers
-    so the dashboard can tell the user to calibrate manually."""
-    result = autocalibrate(play_id, data_dir)
-    if result is None:
+    """Stage entry point. No-op when a calibration already exists (a manual one
+    is never overwritten); otherwise transfer one from a same-game reference.
+    Raises only when there is NO calibration at all and none can be transferred,
+    since the downstream `field` stage cannot run without one."""
+    if (play_dir(play_id, Path(data_dir)) / "calibration.json").is_file():
+        return
+    if autocalibrate(play_id, data_dir) is None:
         raise RuntimeError(
-            "auto-calibrate failed: no same-game play matched well enough — "
-            "calibrate this one by hand."
+            "no calibration for this play and no same-game reference to transfer "
+            "from — calibrate it by hand (see the viewer or footballcv.calibrate)."
         )
