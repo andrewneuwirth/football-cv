@@ -1,86 +1,65 @@
+<div align="center">
+
+![football-cv](docs/hero.png)
+
 # football-cv
 
-Computer-vision pipeline for football film. Point it at a play and it detects
-every player, tracks them across frames, calibrates the camera to field
-coordinates, assigns teams by jersey color, and classifies both teams into
-standard position groups.
+**Detect, track, and classify every player on a football play — from film.**
 
-MIT licensed.
+[![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](pyproject.toml)
+[![classifier](https://img.shields.io/badge/classifier-torch--free-green.svg)](#install)
+[![tests](https://img.shields.io/badge/tests-22%20passing-brightgreen.svg)](tests)
 
-## What it does
+</div>
+
+football-cv is a computer-vision pipeline that turns a single-play video into
+**position labels for all 22 players**. It detects everyone on the field, tracks
+them across frames, calibrates the camera to real field coordinates, splits the
+two teams by jersey color, finds the line of scrimmage and the snap, throws out
+the officials and sideline crews, and classifies each player by alignment —
+`DL / LB / CB / S` on defense, `OL / QB / RB / WR` on offense.
+
+It's a **toolkit**, not just an app: one-call Python API, a `football-cv` CLI,
+and a browser calibration + overlay viewer.
 
 ```
-film → person detection → multi-object tracking → field calibration
-     → team assignment → position classification → positions.json
+film → detect → track → team colors → stitch fragments
+     → calibrate → field project → line of scrimmage + snap → positions.json
 ```
 
-Each stage is an independent module under `footballcv/` that reads and writes
-per-play artifacts on disk. The headline module is `footballcv/positions.py`: it
-takes the field-projected tracks, strips officials and sideline crews, splits
-offense from defense by jersey color, finds the line of scrimmage and the snap,
-and labels each player by alignment. Output is only the generic position groups
-`DL / LB / CB / S` and `OL / QB / RB / WR` — no playbook-specific naming.
+## Why
+
+Most "player tracking" stops at boxes. The hard part is turning those boxes into
+*football* — which body is a defensive lineman vs. a safety, who's offense vs.
+defense, where the ball is. That needs camera calibration to field yards, a
+jersey-color team split, robust snap detection, and filtering out everyone who
+isn't in the play (refs, benches, chain crew). football-cv does all of it and
+emits plain, standard position groups — no scheme- or playbook-specific naming.
 
 ## Install
 
 ```bash
-pip install -e .              # the classifier (numpy, scipy) + pipeline
+pip install -e .              # the classifier + pipeline (numpy, scipy, opencv)
 pip install -e ".[detect]"    # + YOLO person detection (pulls in torch)
-pip install -e ".[dev]"       # + test dependencies (pytest)
+pip install -e ".[dev]"       # + pytest
 ```
 
-Requires Python 3.11+. Person detection (`ultralytics`/YOLO, and therefore
-torch) is an optional extra — the classifier and tests run without it.
+Python 3.11+. Detection (torch) is an **optional extra** — everything downstream
+of tracking runs torch-free.
 
-## Usage
+## Quickstart
 
-### Bring your own film
-
-```bash
-# copy your film into place as a named play
-python -m footballcv.cli ingest my_play --video path/to/film.mp4 --data ./data
-
-# run the full pipeline end to end (needs the [detect] extra)
-python -m footballcv.cli all my_play --data ./data
-```
-
-`ingest` copies your video to `data/plays/<play_id>/clip.mp4`, which every
-downstream stage reads. You can also drop a `clip.mp4` there yourself.
-
-Field calibration needs a one-time reference: mark ≥4 field points (yard-line ×
-sideline intersections) on one frame to write `calibration.json`. The browser
-tool under `viewer/` does this; `autocal` then transfers that calibration to
-other plays in the same game by feature matching.
-
-### Run individual stages
-
-```bash
-python -m footballcv.cli detect my_play --data ./data
-```
-
-Installing the package also puts a `football-cv` command on your PATH, so
-`football-cv detect my_play --data ./data` works too.
-
-Stages, in pipeline order: `detect`, `track`, `teamcolor`, `stitch`, `autocal`,
-`field`, `positions`. `all` runs them in sequence. Each stage reads the
-artifacts written by the previous one from the play's directory under `--data`.
-The final stage writes `positions.json` (a map from track id to position group)
-and a richer `labels.json` (teams, line of scrimmage, snap).
-
-See [`examples/`](examples/) for a sample `positions.json`.
-
-## Use as a library
-
-Prefer code over the CLI? The whole pipeline is one call:
+### As a library
 
 ```python
 import footballcv
 
 positions = footballcv.analyze(
     video="play.mp4",
-    calibration={
+    calibration={                                  # pixel -> field yards
         "frame": 120,
-        "points": [                                   # pixel -> field yards
+        "points": [
             {"px": 20,   "py": 1030, "fx": 30, "fy": 0.0},    # 30 yd @ near sideline
             {"px": 1900, "py": 300,  "fx": 30, "fy": 53.33},  # 30 yd @ far sideline
             {"px": 700,  "py": 1040, "fx": 45, "fy": 0.0},    # 45 yd @ near sideline
@@ -92,10 +71,7 @@ positions = footballcv.analyze(
 # -> {"3": "DL", "11": "LB", "24": "S", "41": "OL", "52": "QB", ...}
 ```
 
-`analyze()` needs the detection extra (`pip install "football-cv[detect]"`).
-Artifacts land under a temp dir by default; pass `data_dir=` to keep them.
-
-Lower-level helpers for driving it yourself:
+Lower-level helpers when you want to drive it yourself:
 
 ```python
 from footballcv import calibrate, set_snap, load_positions, load_labels
@@ -106,40 +82,62 @@ positions = load_positions("./data", "play1")           # {track_id: group}
 labels = load_labels("./data", "play1")                 # teams, LOS, snap, ...
 ```
 
-Every stage is also importable and callable on its own
-(`from footballcv import detect, track, positions`), each reading and writing
-the per-play artifacts on disk.
+### As a CLI
+
+```bash
+football-cv ingest myplay --video play.mp4 --data ./data
+football-cv all    myplay --data ./data          # detect -> ... -> positions
+football-cv positions myplay --data ./data       # a single stage
+```
+
+Every stage reads and writes per-play artifacts under
+`data/plays/<play_id>/`, so runs are inspectable, resumable, and reproducible.
+See [`examples/`](examples/) for a sample `positions.json`.
 
 ## Position groups
 
-Players are labeled with standard groups, inferred from field-relative
-alignment. Defense (full alignment logic):
+Inferred from field-relative alignment. Defense uses full alignment logic;
+offense is tagged generically.
 
-| Token | Position       | Read                                        |
-| ----- | -------------- | ------------------------------------------- |
-| `DL`  | Defensive line | On the line of scrimmage                    |
-| `LB`  | Linebacker     | A few yards off the line, inside            |
-| `CB`  | Cornerback     | Pressed wide, near the boundary             |
-| `S`   | Safety         | Deep off the line, toward the middle        |
+| Defense | Read                         | Offense | Read                        |
+| ------- | ---------------------------- | ------- | --------------------------- |
+| `DL`    | on the line of scrimmage     | `OL`    | on the line                 |
+| `LB`    | off the line, inside         | `WR`    | split wide                  |
+| `CB`    | pressed wide, near boundary  | `QB`    | deep, centered              |
+| `S`     | deep, toward the middle      | `RB`    | in the backfield            |
 
-Offense (generic alignment): `OL` on the line, `WR` split wide, `QB` the deep
-centered back, `RB` the other backs.
+## How it works
+
+Each stage is an independent module under `footballcv/`:
+
+| Stage        | Module          | Does                                                      |
+| ------------ | --------------- | -------------------------------------------------------- |
+| `detect`     | `detect.py`     | person detection per frame (YOLO)                        |
+| `track`      | `track.py`      | multi-object tracking into stable ids                    |
+| `teamcolor`  | `teamcolor.py`  | jersey-color clustering → team A/B/ref                   |
+| `stitch`     | `stitch.py`     | merge track fragments of one player into one track       |
+| `autocal`    | `autocal.py`    | transfer a calibration from a same-game reference play   |
+| `field`      | `field.py`      | project every track to field yards via homography        |
+| `positions`  | `positions.py`  | LOS + snap, participant filtering, position classification |
+
+Calibration is the one manual input: mark ≥4 field points (yard-line × sideline)
+on one frame. `autocal` then transfers it to other plays in the same game by
+feature matching.
 
 ## Viewer
 
-`viewer/` holds a browser-based field viewer and calibration tool:
+A zero-build browser tool under `viewer/`:
 
-- `viewer/web/` — a zero-build calibration UI (`calibrate.html`, with a frame
-  scrubber) and an overlay viewer (`result.html`) that draws the classified
-  positions on the film.
-- `viewer/backend/serve.py` — a small local server that serves the UI, saves
-  calibrations, runs the pipeline, and renders the overlay.
-- `viewer/field/` — React Native / Expo + Skia components (an early-stage port;
-  full Expo build wiring is out of scope for v0.1).
+- `viewer/web/calibrate.html` — scrub to a frame, click field points, mark the snap
+- `viewer/web/result.html` — the classified positions drawn over the film
+- `viewer/backend/serve.py` — local server that saves calibrations, runs the
+  pipeline, and renders overlays
 
-Run the local viewer with `python viewer/backend/serve.py` and open
-`http://localhost:8000/calibrate.html?play=<play_id>`.
+```bash
+python viewer/backend/serve.py
+# open http://localhost:8000/calibrate.html?play=<play_id>
+```
 
 ## License
 
-MIT. See [`LICENSE`](LICENSE).
+MIT — see [`LICENSE`](LICENSE).
