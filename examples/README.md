@@ -13,3 +13,10 @@ It maps each classified defender's track id to a standard position group:
 
 Tokens come from the groups documented in the top-level
 [README](../README.md#position-groups): `DL` `LB` `CB` `S`.
+
+## `synthetic_snaps.csv`
+
+A made-up 10-game season in the play-call CSV schema (see
+[`docs/playcall.md`](../docs/playcall.md)), written by `synthetic_snaps.py`
+with invented tendencies. For trying `football-cv playcall train` and for the
+tests; it is not real football data.

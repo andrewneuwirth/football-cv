@@ -42,6 +42,7 @@ emits plain, standard position groups — no team- or playbook-specific naming.
 ```bash
 pip install -e .              # the classifier + pipeline (numpy, scipy, opencv)
 pip install -e ".[detect]"    # + YOLO person detection (pulls in torch)
+pip install -e ".[playcall]"  # + run/pass play-call predictor (xgboost, pandas)
 pip install -e ".[dev]"       # + pytest
 ```
 
@@ -171,6 +172,25 @@ Reproduce / retrain with your own labeled plays:
 python -m footballcv.eval          --data ./data --plays play1,play2   # score
 python -m footballcv.train_offense --data ./data                       # retrain
 ```
+
+## Play-call prediction
+
+An optional add-on: from the pre-snap look, predict **run vs pass** and, for
+runs, **direction**. `football-cv playcall features` reads strength, formation
+split, backfield, QB set, box count, motion, hash and field position off a
+classified play; you add the situation (down, distance, ...) and labels from
+your own tagging; an XGBoost model trains on it, split by game and scored
+against "most common play" and a down × distance table.
+
+```bash
+pip install -e ".[playcall]"
+football-cv playcall features play1 play2 --data ./data --out snaps.csv
+football-cv playcall train   --data snaps.csv --out model/
+football-cv playcall predict --model model/ --data upcoming.csv
+```
+
+CSV schema, what film can and can't provide, the evaluation rules, and numbers
+on a **synthetic** example season: [`docs/playcall.md`](docs/playcall.md).
 
 ## Viewer
 

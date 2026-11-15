@@ -4,11 +4,13 @@
 Open-source computer-vision pipeline: single-play football film → detect, track,
 team-split by jersey color, calibrate to field yards, find LOS + snap, filter
 officials, and classify all 22 players (DL/LB/CB/S, OL/QB/RB/WR) → positions.json.
+Optional play-call predictor (`presnap.py` + `playcall.py`, docs/playcall.md):
+pre-snap look → run/pass + run direction.
 Generic toolkit (Python API, `football-cv` CLI, browser viewer); public on GitHub.
 
 ## Stack
 Python >= 3.11 package `footballcv/` (numpy, scipy, opencv; torch/YOLO only via the
-`[detect]` extra). Viewer: zero-build HTML in `viewer/web/` + `viewer/backend/serve.py`;
+`[detect]` extra; xgboost/pandas only via `[playcall]`). Viewer: zero-build HTML in `viewer/web/` + `viewer/backend/serve.py`;
 `viewer/field|anim|theme` are React Native Skia TS components. MIT license.
 
 ## Install / run / test
@@ -39,3 +41,6 @@ pytest -q                          # what CI runs (.github/workflows/ci.yml)
 - Public repo: keep it generic — no team names, playbook terms, or real film.
   CI's optional scrub step fails on terms in the `SCRUB_PATTERN` secret.
 - Never commit video (`*.mp4`) or `data/`.
+- Play-call tests and docs use only the generated `examples/synthetic_snaps.csv`
+  (regenerate with `examples/synthetic_snaps.py`); never commit real snaps or a
+  model trained on them, and never quote real-team results as football-cv numbers.
