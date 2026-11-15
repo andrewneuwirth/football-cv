@@ -15,7 +15,9 @@ dependencies = ["numpy", "opencv-python", "scipy"]
 detect = ["ultralytics"]
 # The learned offense classifier — falls back to the geometric heuristic if absent.
 ml = ["scikit-learn", "joblib"]
-dev = ["pytest", "scikit-learn", "joblib"]
+# The play-call predictor (run/pass + run direction from the pre-snap look).
+playcall = ["xgboost", "pandas"]
+dev = ["pytest", "scikit-learn", "joblib", "xgboost", "pandas"]
 
 [project.scripts]
 football-cv = "footballcv.cli:main"
