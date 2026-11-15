@@ -1,53 +1,60 @@
 <div align="center">
 
-![football-cv](docs/hero.png)
+<img src="docs/hero.png" width="860" alt="One play of film with every player boxed and labelled by position group">
 
 # football-cv
 
-**Detect, track, and classify every player on a football play — from film.**
+**Detect, track and classify every player on a football play, from film.**
 
 [![CI](https://github.com/andrewneuwirth/football-cv/actions/workflows/ci.yml/badge.svg)](https://github.com/andrewneuwirth/football-cv/actions/workflows/ci.yml)
-[![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](pyproject.toml)
-[![accuracy](https://img.shields.io/badge/accuracy-~70%25-green.svg)](#evaluation)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.11%2B-3776AB.svg)](pyproject.toml)
+[![Accuracy](https://img.shields.io/badge/position%20accuracy-~70%25-2ea44f.svg)](#evaluation)
+[![Defense](https://img.shields.io/badge/defense-~77%25-2ea44f.svg)](#evaluation)
+
+[Project page](https://newitools.app/lab/football-cv/) · [Evaluation](#evaluation) · [Play-call prediction](#play-call-prediction)
+
+<sub>The labelled frame is real pipeline output.</sub>
 
 </div>
 
-football-cv is a computer-vision pipeline that turns a single-play video into
-**position labels for all 22 players**. It detects everyone on the field, tracks
-them across frames, calibrates the camera to real field coordinates, splits the
-two teams by jersey color, finds the line of scrimmage and the snap, throws out
-the officials and sideline crews, and classifies each player by alignment —
-`DL / LB / CB / S` on defense, `OL / QB / RB / WR` on offense.
+football-cv is a computer-vision pipeline that turns a single-play video into **position labels for all 22
+players**. It detects everyone on the field, tracks them across frames, calibrates the camera to real field
+coordinates, splits the two teams by jersey color, finds the line of scrimmage and the snap, throws out the officials
+and sideline crews, and classifies each player by alignment: `DL / LB / CB / S` on defense, `OL / QB / RB / WR` on
+offense.
 
-It's a **toolkit**, not just an app: one-call Python API, a `football-cv` CLI,
-and a browser calibration + overlay viewer.
+It's a toolkit: a one-call Python API, a `football-cv` CLI, and a browser calibration and overlay viewer.
 
-```
-film → detect → track → team colors → stitch fragments
-     → calibrate → field project → line of scrimmage + snap → positions.json
+| ~70% | ~77% | 22 | 21 plays · 162 players |
+|:---:|:---:|:---:|:---:|
+| position accuracy, all players | accuracy on defense | players labelled per play | hand-labelled evaluation set |
+
+```mermaid
+flowchart LR
+    F["film"] --> D["detect"] --> T["track"] --> C["team colors"] --> S["stitch fragments"]
+    S --> K["calibrate"] --> P["field project"] --> L["line of scrimmage<br/>+ snap"] --> O[("positions.json")]
 ```
 
 ## Why
 
-Most "player tracking" stops at boxes. The hard part is turning those boxes into
-*football* — which body is a defensive lineman vs. a safety, who's offense vs.
-defense, where the ball is. That needs camera calibration to field yards, a
-jersey-color team split, robust snap detection, and filtering out everyone who
-isn't in the play (refs, benches, chain crew). football-cv does all of it and
-emits plain, standard position groups — no team- or playbook-specific naming.
+Most player tracking stops at boxes. The hard part is turning those boxes into football: which body is a defensive
+lineman and which is a safety, who's on offense, where the ball is. That needs camera calibration to field yards, a
+jersey-color team split, robust snap detection, and filtering out everyone who isn't in the play (refs, benches,
+chain crew). football-cv does all of it and emits plain, standard position groups, with no team- or
+playbook-specific naming.
 
 ## Install
 
 ```bash
 pip install -e .              # the classifier + pipeline (numpy, scipy, opencv)
 pip install -e ".[detect]"    # + YOLO person detection (pulls in torch)
+pip install -e ".[ml]"        # + the learned offense model (scikit-learn)
 pip install -e ".[playcall]"  # + run/pass play-call predictor (xgboost, pandas)
 pip install -e ".[dev]"       # + pytest
 ```
 
-Python 3.11+. Detection (torch) is an **optional extra** — everything downstream
-of tracking runs torch-free.
+Python 3.11+. Detection (torch) is an **optional extra**: everything downstream of tracking runs torch-free.
 
 ## Quickstart
 
@@ -91,14 +98,12 @@ football-cv all    myplay --data ./data          # detect -> ... -> positions
 football-cv positions myplay --data ./data       # a single stage
 ```
 
-Every stage reads and writes per-play artifacts under
-`data/plays/<play_id>/`, so runs are inspectable, resumable, and reproducible.
-See [`examples/`](examples/) for a sample `positions.json`.
+Every stage reads and writes per-play artifacts under `data/plays/<play_id>/`, so runs are inspectable, resumable
+and reproducible. See [`examples/`](examples/) for a sample `positions.json`.
 
 ## Position groups
 
-Inferred from field-relative alignment. Defense uses full alignment logic;
-offense is tagged generically.
+Inferred from field-relative alignment. Defense uses full alignment logic; offense is tagged generically.
 
 | Defense | Read                         | Offense | Read                        |
 | ------- | ---------------------------- | ------- | --------------------------- |
@@ -121,50 +126,63 @@ Each stage is an independent module under `footballcv/`:
 | `field`      | `field.py`      | project every track to field yards via homography        |
 | `positions`  | `positions.py`  | LOS + snap, participant filtering, position classification |
 
-Calibration is the one manual input: mark ≥4 field points (yard-line × sideline)
-on one frame. `autocal` then transfers it to other plays in the same game by
-feature matching.
+Calibration is the one manual input: mark ≥4 field points (yard-line × sideline) on one frame. `autocal` then
+transfers it to other plays in the same game by feature matching.
 
 ## Evaluation
 
-Measured against **21 hand-labeled plays (162 players)** with `footballcv.eval`
-(the labels are private; the tool and numbers are not):
+Measured against **21 hand-labeled plays (162 players)** with `footballcv.eval` (the labels are private; the tool and
+numbers are not):
 
 ```
 overall accuracy         ~70%     (69% heuristic offense → ~70% learned)
 excluding the line (OL/DL)  ~65%   (the line is the easy class)
 ```
 
-Defense per class (the deterministic alignment/role logic):
+**Defense (~77%) is the strength**: the deterministic alignment and role logic.
+
+```mermaid
+xychart-beta
+    title "Defense F1 by position group"
+    x-axis ["CB", "DL", "LB", "S"]
+    y-axis "F1" 0 --> 1
+    bar [0.94, 0.87, 0.75, 0.70]
+```
 
 | group | precision | recall |  f1  |  n  |     | group | precision | recall |  f1  |  n  |
 | ----- | :-------: | :----: | :--: | :-: | --- | ----- | :-------: | :----: | :--: | :-: |
 | `CB`  |   1.00    |  0.89  | 0.94 | 18  |     | `LB`  |   0.83    |  0.69  | 0.75 | 35  |
 | `DL`  |   0.87    |  0.87  | 0.87 | 23  |     | `S`   |   0.68    |  0.71  | 0.70 | 21  |
 
-**Defense (~77%) is the strength** — the full alignment/role logic. **The
-offense backfield was the weak spot**: `QB` and `RB` are near-identical in
-field-relative alignment, so the geometric heuristic couldn't tell them apart.
+**The offense backfield was the weak spot**: `QB` and `RB` are near-identical in field-relative alignment, so the
+geometric heuristic couldn't tell them apart.
 
 ### Learned offense model
 
-Rather than tune more thresholds, the offense step uses a small
-**RandomForest** on alignment features (depth, lateral spread, rank among
-teammates). Trained and scored with **leave-one-play-out** cross-validation so
-no play leaks between train and test:
+Rather than tune more thresholds, the offense step uses a small **RandomForest** on alignment features (depth,
+lateral spread, rank among teammates). Trained and scored with **leave-one-play-out** cross-validation so no play
+leaks between train and test:
+
+```mermaid
+xychart-beta
+    title "Offense: learned RF (bars) vs rules (line), %"
+    x-axis ["OL", "QB", "RB", "WR", "Overall"]
+    y-axis "%" 0 --> 100
+    bar [82, 50, 36, 69, 61]
+    line [82, 12, 47, 63, 57]
+```
 
 | offense | OL | QB | RB | WR | overall |
 | ------- | :-: | :-: | :-: | :-: | :-----: |
 | geometric heuristic | 82% | **12%** | 47% | 63% | 57% |
 | **learned (RF)**    | 82% | **50%** | 36% | 69% | **61%** |
 
-The heuristic essentially couldn't find the quarterback (1/8); the model gets it
-half the time — a genuinely learned win where rules failed. It ships in the
-package and loads automatically; without the `[ml]` extra it falls back to the
+The heuristic essentially couldn't find the quarterback (1/8); the model gets it half the time, a learned win where
+rules failed. It ships in the package and loads automatically; without the `[ml]` extra it falls back to the
 heuristic, so the core install stays dependency-free.
 
-An RF over *all* positions was also tried — it ties the tuned defense logic and
-regresses QB, so learning is applied only where it helps (offense).
+An RF over *all* positions was also tried. It ties the tuned defense logic and regresses QB, so learning is applied
+only where it helps (offense).
 
 Reproduce / retrain with your own labeled plays:
 
@@ -175,12 +193,17 @@ python -m footballcv.train_offense --data ./data                       # retrain
 
 ## Play-call prediction
 
-An optional add-on: from the pre-snap look, predict **run vs pass** and, for
-runs, **direction**. `football-cv playcall features` reads strength, formation
-split, backfield, QB set, box count, motion, hash and field position off a
-classified play; you add the situation (down, distance, ...) and labels from
-your own tagging; an XGBoost model trains on it, split by game and scored
-against "most common play" and a down × distance table.
+An optional add-on: from the pre-snap look, predict **run vs pass** and, for runs, **direction**.
+`football-cv playcall features` reads strength, formation split, backfield, QB set, box count, motion, hash and field
+position off a classified play; you add the situation (down, distance, ...) and labels from your own tagging; an
+XGBoost model trains on it, split by game and scored against "most common play" and a down × distance table.
+
+```mermaid
+flowchart LR
+    A["classified play"] --> B["pre-snap features"]
+    U["your situation + tags"] --> B
+    B --> C[("snaps.csv")] --> D["XGBoost"] --> E["p(pass), run side"]
+```
 
 ```bash
 pip install -e ".[playcall]"
@@ -189,17 +212,29 @@ football-cv playcall train   --data snaps.csv --out model/
 football-cv playcall predict --model model/ --data upcoming.csv
 ```
 
-CSV schema, what film can and can't provide, the evaluation rules, and numbers
-on a **synthetic** example season: [`docs/playcall.md`](docs/playcall.md).
+> [!IMPORTANT]
+> **Synthetic example season, not real football.** The chart below comes from `examples/synthetic_snaps.csv`, a
+> made-up season with invented tendencies (618 snaps, 10 games; test set = the last 2 games, 126 snaps). It shows the
+> tool working and says nothing about how well it predicts any real team. Measure on your own snaps.
+
+```mermaid
+xychart-beta
+    title "SYNTHETIC example season: run/pass test accuracy (%)"
+    x-axis ["Model", "All pass", "Down×dist"]
+    y-axis "%" 0 --> 100
+    bar [67.5, 57.1, 50.8]
+```
+
+CSV schema, what film can and can't provide, the evaluation rules, and the full numbers on the **synthetic** example
+season: [`docs/playcall.md`](docs/playcall.md).
 
 ## Viewer
 
 A zero-build browser tool under `viewer/`:
 
-- `viewer/web/calibrate.html` — scrub to a frame, click field points, mark the snap
-- `viewer/web/result.html` — the classified positions drawn over the film
-- `viewer/backend/serve.py` — local server that saves calibrations, runs the
-  pipeline, and renders overlays
+- `viewer/web/calibrate.html`: scrub to a frame, click field points, mark the snap
+- `viewer/web/result.html`: the classified positions drawn over the film
+- `viewer/backend/serve.py`: local server that saves calibrations, runs the pipeline, and renders overlays
 
 ```bash
 python viewer/backend/serve.py
@@ -208,4 +243,4 @@ python viewer/backend/serve.py
 
 ## License
 
-MIT — see [`LICENSE`](LICENSE).
+MIT. See [`LICENSE`](LICENSE).
