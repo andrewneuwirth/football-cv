@@ -51,7 +51,7 @@ plays, not idealized formations):
 - Officials inside the formation (umpire deep middle, head linesman on the
   LOS at the sidelines) are pruned as depth outliers / sideline-LOS bodies.
 
-Defensive vocabulary is THIS TEAM'S system (CONTRACT): dl_es T N dl_ew (DL),
+Defensive vocabulary is a fixed slot naming (CONTRACT): dl_es T N dl_ew (DL),
 lb_a lb_b lb_c (LB), cb_s cb_w F saf_w (DB); _strong = strong side = the side
 with more offensive players outside the tackles.
 """
@@ -270,7 +270,7 @@ F_SIDE_DY_MAX = 10.0  # ...but still a safety, not a deep corner
 # own best fits.
 ROLES = ["dl_ew", "N", "T", "dl_es", "lb_c", "lb_b", "lb_a", "saf_w", "F",
          "cb_w", "cb_s"]
-# The back seven in coach-verified across-field order, weak -> strong. The
+# The back seven in verified across-field order, weak -> strong. The
 # order-preserving DP matches this chain to the bodies sorted by signed
 # lateral, so e.g. an assigned saf_w is ALWAYS weak of an assigned lb_c.
 BACK_CHAIN = ["cb_w", "saf_w", "lb_c", "lb_b", "lb_a", "F", "cb_s"]
@@ -286,7 +286,7 @@ GAP_PEN = 5.0          # leaving a back-seven chain role UNFILLED with filled
                        # football nonsense: the outermost weak second-level
                        # body is the saf_w, so when short a body you push the
                        # fill outward and empty an END role, never a middle
-                       # one (coach read, sample-089: saf_w was left in a hole
+                       # one (film read, sample-089: saf_w was left in a hole
                        # between a filled cb_w and a filled lb_c). Charged in
                        # _order_align per bracketed skip, ON TOP of the flat
                        # ASSIGN_ABSTAIN an end-gap already pays, so a shift
@@ -1510,7 +1510,7 @@ def _role_slots(
 ) -> dict[str, tuple[float, float]]:
     """Template (depth, lateral) slot per role from robust formation stats.
 
-    Laterals live on the coach-verified chain cb_w-saf_w-lb_c-lb_b-lb_a-
+    Laterals live on the verified chain cb_w-saf_w-lb_c-lb_b-lb_a-
     F-cb_s (weak -> strong; positive u = strong side): the LB trio brackets
     the back-seven center bc, corners sit on their side's wide anchor, and
     saf_w / F interpolate the chain between corner and trio. All stats are
@@ -1887,7 +1887,7 @@ def _label_defense(
     ]
     items = [it for it in items if it not in idle_wide]
 
-    # ---- DL: the shallow row on the ball. This team's front is ALWAYS the
+    # ---- DL: the shallow row on the ball. The front is assumed to be the
     # four dl_es/T/N/dl_ew — a fifth body at DL-ish depth is a walked-up LB, so
     # the row is the shallow depth cluster, capped at four.
     cand = sorted(
